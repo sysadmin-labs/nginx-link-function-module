@@ -1,0 +1,34 @@
+# Memory findings that are nginx's own, not this module's.  The valgrind job
+# drives the module through ci/link.sh, which runs one foreground nginx
+# (master_process off) end to end with curl and shuts it down with QUIT, so
+# the pools are freed and whatever is left here belongs to nginx core.  No
+# frame from ngx_link_func_module.c appears in either entry.
+#
+# Both are measured, not assumed.  The first, nginx's environment array, is
+# the only definite loss an empty suppress file reports on a glibc build such
+# as Rocky.  The second, the per-process connection and event arrays set up
+# in ngx_event_process_init, is reported as a definite loss by the valgrind
+# on the Ubuntu CI runner and not on Rocky, a difference in how the two
+# classify memory still pointed at from process-exit state; it is nginx core
+# setting up its event loop once and letting the process exit reclaim it.  If
+# a later nginx brings a new finding, valgrind prints a full trace; add it
+# then, with a name and a reason.
+
+{
+   nginx keeps the environment array until the process ends
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:ngx_alloc
+   fun:ngx_set_environment
+   ...
+}
+
+{
+   nginx per-process connection and event arrays, foreground single-process mode
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect
+   ...
+   fun:ngx_event_process_init
+   ...
+}

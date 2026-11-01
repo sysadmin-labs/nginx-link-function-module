@@ -1,0 +1,38 @@
+name: Link function
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    # Monday morning, so a new nginx release that breaks the module shows
+    # up here and not in somebody's build
+    - cron: '53 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  link:
+    name: exercise a loaded library call
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The suite in t/ reaches the module through Test::Nginx; this compiles
+    # the bundled sample library, loads it with ngx_link_func_lib and drives
+    # a call end to end with curl, checking the response and the query string.
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup
+        with:
+          test-nginx: 'false'
+
+      - name: Build nginx
+        run: |
+          . .github/versions.env
+          ci/build.sh "$NGINX_VERSION" "$HOME/nginx"
+
+      - name: Drive a library call
+        run: ci/link.sh "$HOME/nginx/sbin/nginx"
